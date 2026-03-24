@@ -33,6 +33,7 @@ type PodList struct {
 
 func main() {
 	// Init logger
+	// TODO: the log file should be mapped based on how the pgm is called(by go run or as binary)
 	logFile, err := dlogger.InitLogger("./data/kubernetes.log", slog.LevelInfo)
 	if err != nil {
 		panic(err)

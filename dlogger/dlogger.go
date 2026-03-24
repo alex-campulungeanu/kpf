@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/lmittmann/tint"
@@ -47,6 +48,10 @@ func (t *TeeHandler) WithGroup(group string) slog.Handler {
 	return &TeeHandler{handlers: newHandlers}
 }
 
+func IsGoRun(path string) bool {
+	return strings.Contains(path, os.TempDir())
+}
+
 func InitLogger(filePath string, level slog.Level) (*os.File, error) {
 
 	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -54,20 +59,28 @@ func InitLogger(filePath string, level slog.Level) (*os.File, error) {
 		return nil, err
 	}
 
-	opts := &slog.HandlerOptions{
-		AddSource: true,
-	}
-
-	fileHandler := slog.NewJSONHandler(file, opts)
+	fileHandler := slog.NewJSONHandler(file, &slog.HandlerOptions{AddSource: true})
 	consoleHandler := tint.NewHandler(os.Stdout, &tint.Options{
 		Level:      level,
 		TimeFormat: time.DateTime,
 		AddSource:  true,
 	})
 
-	tee := &TeeHandler{
-		handlers: []slog.Handler{fileHandler, consoleHandler},
+	var handlers []slog.Handler
+	handlers = append(handlers, consoleHandler)
+
+	exe, err := os.Executable()
+	if err != nil {
+		panic(err)
 	}
+	if IsGoRun(exe) {
+		handlers = append(handlers, fileHandler)
+	}
+
+	tee := &TeeHandler{
+		handlers: handlers,
+	}
+
 	slog.SetDefault(slog.New(tee))
 	return file, nil
 
