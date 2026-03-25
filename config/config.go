@@ -11,12 +11,18 @@ import (
 	"path/filepath"
 )
 
-func getConfigPath() (string, error) {
-	homeDir, err := os.UserHomeDir()
+var homeDir = os.UserHomeDir
+var execCommand = exec.Command
+var runCmd = func(cmd *exec.Cmd) error {
+	return cmd.Run()
+}
+
+var getConfigPath = func() (string, error) {
+	home, err := homeDir()
 	if err != nil {
 		return "", fmt.Errorf("while trying to fetch config from home dir %w", err)
 	}
-	configDirPath := filepath.Join(filepath.Join(homeDir, ".config"), configFileDir)
+	configDirPath := filepath.Join(filepath.Join(home, ".config"), configFileDir)
 	configFilePath := filepath.Join(configDirPath, configFileName)
 	slog.Info("Config file path", "path", configFilePath)
 	return configFilePath, nil
@@ -75,11 +81,11 @@ func EditConfigFile() error {
 		return fmt.Errorf("no editor found")
 	}
 	slog.Info("Trying to edit the config file using", "editor", editor, "configFilePath", configFilePath)
-	cmd := exec.Command(editor, configFilePath)
+	cmd := execCommand(editor, configFilePath)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	return runCmd(cmd)
 }
 
 func Init() {
