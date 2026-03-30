@@ -2,7 +2,9 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 )
@@ -23,6 +25,15 @@ func newTestFileStore(t *testing.T) FileStore {
 	}
 }
 
+type MockRunner struct {
+	Called bool
+	Err    error
+}
+
+func (m *MockRunner) Run(cmd *exec.Cmd) error {
+	m.Called = true
+	return m.Err
+}
 func TestConfigPath(t *testing.T) {
 	p, tmpDir := newTestPathProvider(t)
 	path, err := p.GetConfigPath()
@@ -100,27 +111,33 @@ func TestCreateConfigFileAlreadyExists(t *testing.T) {
 	}
 }
 
-// func TestEditConfigFileWithEditor(t *testing.T) {
-// 	pp, _ := newTestPathProvider(t)
-// 	os.Setenv("EDITOR", "fake_editor")
-// 	defer os.Unsetenv("EDITOR")
+func TestEditor_RunCalled(t *testing.T) {
+	p, _ := newTestPathProvider(t)
+	mockRunnner := &MockRunner{}
+	editor := OSEditor{
+		PathProvider: p,
+		Runner:       mockRunnner,
+	}
+	err := editor.Edit()
+	if err != nil {
+		t.Errorf("Edit() error = %v", err)
+	}
+	if !mockRunnner.Called {
+		t.Error("expected Runner.Run to be called, but i wasn't")
+	}
+}
 
-// 	originalGetConfigPath := getConfigPath
-// 	getConfigPath = func() (string, error) {
-// 		return "/tmp/fake_config", nil
-// 	}
-
-// 	defer func() { getConfigPath = originalGetConfigPath }()
-
-// 	originalRunCmd := runCmd
-
-// 	runCmd = func(cmd *exec.Cmd) error {
-// 		return nil
-// 	}
-// 	defer func() { runCmd = originalRunCmd }()
-
-// 	err := EditConfigFile()
-// 	if err != nil {
-// 		t.Errorf("EditConfigFile() error = %v", err)
-// 	}
-// }
+func TestEdit_RunFails(t *testing.T) {
+	p, _ := newTestPathProvider(t)
+	mockRunner := &MockRunner{
+		Err: fmt.Errorf("failed to run"),
+	}
+	editor := OSEditor{
+		PathProvider: p,
+		Runner:       mockRunner,
+	}
+	err := editor.Edit()
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}

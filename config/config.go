@@ -13,22 +13,22 @@ import (
 )
 
 // Interfaces
-type PathProvider interface {
-	GetConfigPath() (string, error)
-}
+// type PathProvider interface {
+// 	GetConfigPath() (string, error)
+// }
 
 type Runner interface {
 	Run(cmd *exec.Cmd) error
 }
 
-type Editor interface {
-	Edit() error
-}
+// type Editor interface {
+// 	Edit() error
+// }
 
-type Store interface {
-	Create() (string, error)
-	Read() (ConfigStructure, error)
-}
+// type Store interface {
+// 	Create() (string, error)
+// 	Read() (ConfigStructure, error)
+// }
 
 // Implementations
 type OSPathProvider struct {
@@ -38,17 +38,17 @@ type OSPathProvider struct {
 type OSRunner struct{}
 
 type FileStore struct {
-	PathProvider PathProvider
+	PathProvider OSPathProvider
 }
 
 type OSEditor struct {
-	PathProvider PathProvider
+	PathProvider OSPathProvider
 	Runner       Runner
 }
 
 type Service struct {
-	Store  Store
-	Editor Editor
+	Store  FileStore
+	Editor OSEditor
 }
 
 func (p OSPathProvider) GetConfigPath() (string, error) {
@@ -137,7 +137,7 @@ func (s *Service) Edit() error {
 	return s.Editor.Edit()
 }
 
-func NewOSPathProvider() PathProvider {
+func NewOSPathProvider() OSPathProvider {
 	return OSPathProvider{
 		HomeDirFunc: util.HomeDir,
 	}
