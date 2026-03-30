@@ -15,11 +15,6 @@ import (
 	"syscall"
 )
 
-type rules struct {
-	prefix string
-	port   int
-}
-
 type PodList struct {
 	Items []struct {
 		Metadata struct {
@@ -45,11 +40,11 @@ func main() {
 	flag.Parse()
 
 	store := config.FileStore{
-		PathProvider: config.OSPathProvider{},
+		PathProvider: config.NewOSPathProvider(),
 	}
 
 	editor := config.OSEditor{
-		PathProvider: config.OSPathProvider{},
+		PathProvider: config.NewOSPathProvider(),
 		Runner:       config.OSRunner{},
 	}
 

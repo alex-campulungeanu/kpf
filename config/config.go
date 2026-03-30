@@ -12,17 +12,7 @@ import (
 	"path/filepath"
 )
 
-// var homeDir = os.UserHomeDir
-// var execCommand = exec.Command
-// var runCmd = func(cmd *exec.Cmd) error {
-// 	return cmd.Run()
-// }
-
 // Interfaces
-type HomeDirProvider interface {
-	HomeDir() (string, error)
-}
-
 type PathProvider interface {
 	GetConfigPath() (string, error)
 }
@@ -41,8 +31,8 @@ type Store interface {
 }
 
 // Implementations
-
 type OSPathProvider struct {
+	HomeDirFunc func() (string, error)
 }
 
 type OSRunner struct{}
@@ -62,7 +52,7 @@ type Service struct {
 }
 
 func (p OSPathProvider) GetConfigPath() (string, error) {
-	homeDir, err := util.HomeDir()
+	homeDir, err := p.HomeDirFunc()
 	if err != nil {
 		return "", fmt.Errorf("while trying to fetch config from home dir %w", err)
 	}
@@ -81,8 +71,7 @@ func (fs FileStore) Create() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	configDirPath := filepath.Dir(configFilePath)
-	err = os.MkdirAll(configDirPath, 0755)
+	err = os.MkdirAll(filepath.Dir(configFilePath), 0755)
 	if err != nil {
 		return "", err
 	}
@@ -146,6 +135,12 @@ func (s *Service) Read() (ConfigStructure, error) {
 
 func (s *Service) Edit() error {
 	return s.Editor.Edit()
+}
+
+func NewOSPathProvider() PathProvider {
+	return OSPathProvider{
+		HomeDirFunc: util.HomeDir,
+	}
 }
 
 func Init(s Service) {
