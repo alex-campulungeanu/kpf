@@ -43,8 +43,23 @@ func main() {
 	//Edit the config file and exit
 	edit := flag.Bool("edit", false, "Edit the config file")
 	flag.Parse()
+
+	store := config.FileStore{
+		PathProvider: config.OSPathProvider{},
+	}
+
+	editor := config.OSEditor{
+		PathProvider: config.OSPathProvider{},
+		Runner:       config.OSRunner{},
+	}
+
+	configService := config.Service{
+		Store:  store,
+		Editor: editor,
+	}
+
 	if *edit {
-		err := config.EditConfigFile()
+		err := configService.Editor.Edit()
 		if err != nil {
 			slog.Error("Error editing config file", "err", err)
 		}
@@ -52,8 +67,8 @@ func main() {
 	}
 
 	// Init config
-	config.Init()
-	configData, err := config.ReadConfigFile()
+	config.Init(configService)
+	configData, err := configService.Store.Read()
 	if err != nil {
 		slog.Error("The config file does not have correct format")
 		return

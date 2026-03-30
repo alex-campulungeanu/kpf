@@ -5,31 +5,79 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"kubernetes/util"
 	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 )
 
-var homeDir = os.UserHomeDir
-var execCommand = exec.Command
-var runCmd = func(cmd *exec.Cmd) error {
-	return cmd.Run()
+// var homeDir = os.UserHomeDir
+// var execCommand = exec.Command
+// var runCmd = func(cmd *exec.Cmd) error {
+// 	return cmd.Run()
+// }
+
+// Interfaces
+type HomeDirProvider interface {
+	HomeDir() (string, error)
 }
 
-var getConfigPath = func() (string, error) {
-	home, err := homeDir()
+type PathProvider interface {
+	GetConfigPath() (string, error)
+}
+
+type Runner interface {
+	Run(cmd *exec.Cmd) error
+}
+
+type Editor interface {
+	Edit() error
+}
+
+type Store interface {
+	Create() (string, error)
+	Read() (ConfigStructure, error)
+}
+
+// Implementations
+
+type OSPathProvider struct {
+}
+
+type OSRunner struct{}
+
+type FileStore struct {
+	PathProvider PathProvider
+}
+
+type OSEditor struct {
+	PathProvider PathProvider
+	Runner       Runner
+}
+
+type Service struct {
+	Store  Store
+	Editor Editor
+}
+
+func (p OSPathProvider) GetConfigPath() (string, error) {
+	homeDir, err := util.HomeDir()
 	if err != nil {
 		return "", fmt.Errorf("while trying to fetch config from home dir %w", err)
 	}
-	configDirPath := filepath.Join(filepath.Join(home, ".config"), configFileDir)
+	configDirPath := filepath.Join(filepath.Join(homeDir, ".config"), configFileDir)
 	configFilePath := filepath.Join(configDirPath, configFileName)
 	slog.Info("Config file path", "path", configFilePath)
 	return configFilePath, nil
 }
 
-func CreateConfigFile() (string, error) {
-	configFilePath, err := getConfigPath()
+func (r OSRunner) Run(cmd *exec.Cmd) error {
+	return cmd.Run()
+}
+
+func (fs FileStore) Create() (string, error) {
+	configFilePath, err := fs.PathProvider.GetConfigPath()
 	if err != nil {
 		return "", err
 	}
@@ -55,8 +103,8 @@ func CreateConfigFile() (string, error) {
 	return configFilePath, nil
 }
 
-func ReadConfigFile() (ConfigStructure, error) {
-	configFilePath, err := getConfigPath()
+func (fs FileStore) Read() (ConfigStructure, error) {
+	configFilePath, err := fs.PathProvider.GetConfigPath()
 	if err != nil {
 		return ConfigStructure{}, err
 	}
@@ -71,8 +119,8 @@ func ReadConfigFile() (ConfigStructure, error) {
 	return configData, nil
 }
 
-func EditConfigFile() error {
-	configFilePath, err := getConfigPath()
+func (e OSEditor) Edit() error {
+	configFilePath, err := e.PathProvider.GetConfigPath()
 	if err != nil {
 		return fmt.Errorf("unable to get the config path %w", err)
 	}
@@ -81,15 +129,27 @@ func EditConfigFile() error {
 		return fmt.Errorf("no editor found")
 	}
 	slog.Info("Trying to edit the config file using", "editor", editor, "configFilePath", configFilePath)
-	cmd := execCommand(editor, configFilePath)
+	cmd := exec.Command(editor, configFilePath)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return runCmd(cmd)
+	return e.Runner.Run(cmd)
 }
 
-func Init() {
-	filePath, err := CreateConfigFile()
+func (s *Service) Create() (string, error) {
+	return s.Store.Create()
+}
+
+func (s *Service) Read() (ConfigStructure, error) {
+	return s.Store.Read()
+}
+
+func (s *Service) Edit() error {
+	return s.Editor.Edit()
+}
+
+func Init(s Service) {
+	filePath, err := s.Store.Create()
 	if err != nil {
 		slog.Error("error create config file %v", "err", err)
 	}
